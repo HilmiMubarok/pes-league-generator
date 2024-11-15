@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PlayerService } from '../../services/player.service';
+import { StandingComponent } from '../standing/standing.component';
 
 interface Match {
   player1: string;
@@ -28,7 +29,7 @@ interface Standing {
 @Component({
   selector: 'app-league-bracket',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, StandingComponent],
   templateUrl: './league-bracket.component.html',
   styleUrls: ['./league-bracket.component.css'],
 })
