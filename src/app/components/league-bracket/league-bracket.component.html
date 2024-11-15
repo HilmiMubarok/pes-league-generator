@@ -41,12 +41,12 @@
 
   <app-standing [standings]="standings"></app-standing>
 
-  <div class="flex justify-start">
+  <div class="flex justify-start mt-6">
     <button
-      (click)="goBack()"
-      class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+      (click)="endTournament()"
+      class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition duration-300"
     >
-      Back to Team Assignment
+      End Tournament
     </button>
   </div>
 </div>

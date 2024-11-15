@@ -5,6 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PlayerService } from '../../services/player.service';
 import { StandingComponent } from '../standing/standing.component';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 interface Match {
   player1: string;
@@ -147,7 +149,40 @@ export class LeagueBracketComponent implements OnInit {
     });
   }
 
-  goBack() {
-    this.router.navigate(['/team-assignment']);
+  endTournament() {
+    // Generate and download Excel report
+    this.downloadExcelReport();
+
+    // Clear player data and navigate to setup
+    this.playerService.clearPlayers();
+    this.router.navigate(['/setup']);
+  }
+
+  private downloadExcelReport() {
+    // Create worksheet
+    const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(this.standings);
+
+    // Create workbook and add the worksheet
+    const wb: XLSX.WorkBook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tournament Results');
+
+    // Generate Excel file
+    const excelBuffer: any = XLSX.write(wb, {
+      bookType: 'xlsx',
+      type: 'array',
+    });
+    const data: Blob = new Blob([excelBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    // Save the file
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+    const filename = `tournament_results_${day}_${month}_${year}.xlsx`;
+
+    saveAs(data, filename);
   }
 }
