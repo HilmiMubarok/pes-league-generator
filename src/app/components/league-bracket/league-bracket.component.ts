@@ -43,13 +43,17 @@ export class LeagueBracketComponent implements OnInit {
   constructor(private router: Router, private playerService: PlayerService) {}
 
   ngOnInit() {
-    this.players = this.playerService.getPlayers();
-    if (this.players.length < 2) {
-      this.router.navigate(['/setup']);
-    } else {
+    this.loadSavedData();
+    if (this.matches.length === 0 || this.standings.length === 0) {
+      this.players = this.playerService.getPlayers();
+      if (this.players.length < 2) {
+        this.router.navigate(['/setup']);
+        return;
+      }
       this.generateMatches();
       this.initializeStandings();
     }
+    this.updateStandings();
   }
 
   generateMatches() {
@@ -64,6 +68,7 @@ export class LeagueBracketComponent implements OnInit {
         }
       }
     }
+    this.saveData();
   }
 
   initializeStandings() {
@@ -84,6 +89,7 @@ export class LeagueBracketComponent implements OnInit {
     if (match.score1 !== undefined && match.score2 !== undefined) {
       match.saved = true;
       this.updateStandings();
+      this.saveData();
     } else {
       alert('Please enter scores for both players');
     }
@@ -147,15 +153,25 @@ export class LeagueBracketComponent implements OnInit {
         return a.player.localeCompare(b.player); // Finally alphabetically
       }
     });
+
+    this.saveData();
   }
 
   endTournament() {
     // Generate and download Excel report
     this.downloadExcelReport();
 
+    this.clearAllLocalStorage();
+
+    this.clearSavedData();
+
     // Clear player data and navigate to setup
     this.playerService.clearPlayers();
     this.router.navigate(['/setup']);
+  }
+
+  private clearAllLocalStorage() {
+    localStorage.clear();
   }
 
   private downloadExcelReport() {
@@ -184,5 +200,31 @@ export class LeagueBracketComponent implements OnInit {
     const filename = `tournament_results_${day}_${month}_${year}.xlsx`;
 
     saveAs(data, filename);
+  }
+
+  private saveData() {
+    localStorage.setItem('leagueBracketMatches', JSON.stringify(this.matches));
+    localStorage.setItem(
+      'leagueBracketStandings',
+      JSON.stringify(this.standings)
+    );
+  }
+
+  private loadSavedData() {
+    const savedMatches = localStorage.getItem('leagueBracketMatches');
+    const savedStandings = localStorage.getItem('leagueBracketStandings');
+
+    if (savedMatches && savedStandings) {
+      this.matches = JSON.parse(savedMatches);
+      this.standings = JSON.parse(savedStandings);
+    } else {
+      this.matches = [];
+      this.standings = [];
+    }
+  }
+
+  private clearSavedData() {
+    localStorage.removeItem('leagueBracketMatches');
+    localStorage.removeItem('leagueBracketStandings');
   }
 }

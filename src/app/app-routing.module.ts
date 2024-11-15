@@ -1,11 +1,13 @@
 // src/app/app-routing.module.ts
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
+import { SavedDataGuard } from './guards/saved-data.guard';
 
 const routes: Routes = [
   { path: '', redirectTo: '/setup', pathMatch: 'full' },
   {
     path: 'setup',
+    canActivate: [SavedDataGuard],
     loadComponent: () =>
       import('./components/player-setup/player-setup.component').then(
         (m) => m.PlayerSetupComponent
