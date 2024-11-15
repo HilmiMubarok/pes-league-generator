@@ -3,6 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { PlayerService } from '../../services/player.service';
+import { teams } from 'src/app/data/teams';
 
 @Component({
   selector: 'app-team-assignment',
@@ -14,24 +15,7 @@ import { PlayerService } from '../../services/player.service';
 export class TeamAssignmentComponent implements OnInit {
   players: string[] = [];
   teams: { [key: string]: string } = {};
-  teamNames: string[] = [
-    'Manchester United',
-    'Barcelona',
-    'Real Madrid',
-    'Bayern Munich',
-    'Liverpool',
-    'Juventus',
-    'Paris Saint-Germain',
-    'Manchester City',
-    'Chelsea',
-    'Arsenal',
-    'Borussia Dortmund',
-    'AC Milan',
-    'Inter Milan',
-    'Atletico Madrid',
-    'Tottenham Hotspur',
-    'Ajax',
-  ];
+  teamNames: string[] = teams;
 
   constructor(private router: Router, private playerService: PlayerService) {}
 
