@@ -31,4 +31,41 @@
       Start Tournament
     </button>
   </div>
+  <details class="mt-8">
+    <summary class="text-xl font-semibold mb-4">Team Names:</summary>
+    <ul class="space-y-2 mb-4">
+      <li
+        *ngFor="let team of teamNames; let i = index"
+        class="flex items-center space-x-2"
+      >
+        <span class="bg-gray-100 p-2 rounded flex-grow">{{ team }}</span>
+        <button (click)="removeTeam(i)" class="text-red-500 hover:text-red-700">
+          Remove
+        </button>
+      </li>
+    </ul>
+  </details>
+
+  <div class="mb-8">
+    <h2 class="text-xl font-semibold mb-4">Add New Team:</h2>
+    <form
+      [formGroup]="newTeamForm"
+      (ngSubmit)="addTeam()"
+      class="flex space-x-2"
+    >
+      <input
+        formControlName="newTeamName"
+        type="text"
+        placeholder="Enter new team name"
+        class="flex-grow p-2 border rounded"
+      />
+      <button
+        type="submit"
+        [disabled]="newTeamForm.invalid"
+        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
+      >
+        Add Team
+      </button>
+    </form>
+  </div>
 </div>
