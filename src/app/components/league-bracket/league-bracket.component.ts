@@ -1,131 +1,198 @@
-// src/app/components/league-bracket/league-bracket.component.ts
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { PlayerService } from '../../services/player.service';
-import { StandingComponent } from '../standing/standing.component';
-import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
-
-interface Match {
-  player1: string;
-  player2: string;
-  score1?: number;
-  score2?: number;
-  saved: boolean;
-}
-
-interface Standing {
-  player: string;
-  played: number;
-  won: number;
-  drawn: number;
-  lost: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  goalDifference: number;
-  points: number;
-}
+import { Store } from '@ngrx/store';
+import { Observable, BehaviorSubject, combineLatest } from 'rxjs';
+import { map, take } from 'rxjs/operators';
+import { Match } from '../../models/match.interface';
+import { Player } from '../../models/player.interface';
+import { Standing } from '../../models/standing.interface';
+import { selectAllPlayers } from '../../store/player/player.selectors';
+import { selectAllMatches, selectMatchesLoading, selectMatchesError } from '../../store/match/match.selectors';
+import { MatchActions } from '../../store/match/match.actions';
+import { PlayerActions } from '../../store/player/player.actions';
+import { ExcelService } from '../../services/excel.service';
 
 @Component({
   selector: 'app-league-bracket',
-  standalone: true,
-  imports: [CommonModule, FormsModule, StandingComponent],
-  templateUrl: './league-bracket.component.html',
-  styleUrls: ['./league-bracket.component.css'],
+  templateUrl: './league-bracket.component.html'
 })
 export class LeagueBracketComponent implements OnInit {
-  players: string[] = [];
-  matches: Match[] = [];
-  standings: Standing[] = [];
+  matches$: Observable<Match[]>;
+  players$: Observable<Player[]>;
+  standings$: Observable<Standing[]>;
+  allMatchesCompleted$: Observable<boolean>;
+  isGenerating$ = new BehaviorSubject<boolean>(false);
+  isLoading$: Observable<boolean>;
+  error$: Observable<any>;
+  selectedPlayer: number | null = null;
+  filteredMatches$: Observable<Match[]>;
 
-  constructor(private router: Router, private playerService: PlayerService) {}
+  constructor(
+    private store: Store,
+    private router: Router,
+    private excelService: ExcelService
+  ) {
+    this.matches$ = this.store.select(selectAllMatches);
+    this.players$ = this.store.select(selectAllPlayers);
+    this.isLoading$ = this.store.select(selectMatchesLoading);
+    this.error$ = this.store.select(selectMatchesError);
 
-  ngOnInit() {
-    this.loadSavedData();
-    if (this.matches.length === 0 || this.standings.length === 0) {
-      this.players = this.playerService.getPlayers();
-      if (this.players.length < 2) {
-        this.router.navigate(['/setup']);
-        return;
-      }
-      this.generateMatches();
-      this.initializeStandings();
-    }
-    this.updateStandings();
+    // Calculate standings whenever matches change
+    this.standings$ = combineLatest([this.matches$, this.players$]).pipe(
+      map(([matches, players]) => this.calculateStandings(matches, players))
+    );
+
+    // Initialize filtered matches
+    this.filteredMatches$ = this.matches$;
+
+    // Check if all matches are completed
+    this.allMatchesCompleted$ = this.matches$.pipe(
+      map(matches => matches.length > 0 && matches.every(match => match.completed))
+    );
   }
 
-  generateMatches() {
-    for (let i = 0; i < this.players.length; i++) {
-      for (let j = 0; j < this.players.length; j++) {
-        if (i !== j) {
-          this.matches.push({
-            player1: this.players[i],
-            player2: this.players[j],
-            saved: false,
-          });
+  ngOnInit(): void {
+    // First, try to load saved players from localStorage
+    const savedPlayers = localStorage.getItem('players');
+    if (savedPlayers) {
+      this.store.dispatch(PlayerActions.loadPlayersSuccess({ players: JSON.parse(savedPlayers) }));
+    }
+
+    // Check if we have players and generate matches if needed
+    combineLatest([this.matches$, this.players$])
+      .pipe(take(1))
+      .subscribe(([matches, players]) => {
+        // If we have saved matches but no players, load from localStorage
+        if (players.length === 0) {
+          const savedPlayers = localStorage.getItem('players');
+          if (savedPlayers) {
+            const parsedPlayers = JSON.parse(savedPlayers);
+            this.store.dispatch(PlayerActions.loadPlayersSuccess({ players: parsedPlayers }));
+          } else {
+            this.router.navigate(['/player-setup']);
+            return;
+          }
+        }
+
+        if (matches.length === 0) {
+          // Load matches from localStorage first
+          const savedMatches = localStorage.getItem('leagueMatches');
+          if (savedMatches) {
+            this.store.dispatch(MatchActions.loadMatchesSuccess({ matches: JSON.parse(savedMatches) }));
+          } else {
+            this.generateMatches(players);
+          }
+        }
+      });
+  }
+
+  private generateMatches(players: Player[]): void {
+    if (players.length < 2) return;
+
+    this.isGenerating$.next(true);
+    try {
+      const matches: Match[] = [];
+      let matchId = 1;
+      const isFullSeason = localStorage.getItem('isFullSeason') === 'true';
+
+      // Generate matches where each player plays against every other player
+      for (let i = 0; i < players.length; i++) {
+        for (let j = 0; j < players.length; j++) {
+          if (i !== j) { // Avoid self matches
+            matches.push({
+              id: matchId.toString(),
+              round: Math.floor((matchId - 1) / 2) + 1,
+              player1: players[i],
+              player2: players[j],
+              player1Score: 0,
+              player2Score: 0,
+              completed: false
+            });
+            matchId++;
+          }
         }
       }
-    }
-    this.saveData();
-  }
 
-  initializeStandings() {
-    this.standings = this.players.map((player) => ({
-      player,
-      played: 0,
-      won: 0,
-      drawn: 0,
-      lost: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-      goalDifference: 0,
-      points: 0,
-    }));
-  }
+      // If not full season, keep only half of the matches
+      const finalMatches = isFullSeason ? matches : matches.filter((match, index) => {
+        const reverseMatch = matches.find(m => 
+          m.player1.id === match.player2.id && 
+          m.player2.id === match.player1.id
+        );
+        return matches.indexOf(reverseMatch!) > index;
+      });
 
-  saveScore(match: Match) {
-    if (match.score1 !== undefined && match.score2 !== undefined) {
-      match.saved = true;
-      this.updateStandings();
-      this.saveData();
-    } else {
-      alert('Please enter scores for both players');
+      this.store.dispatch(MatchActions.loadMatchesSuccess({ matches: finalMatches }));
+    } finally {
+      this.isGenerating$.next(false);
     }
   }
 
-  updateStandings() {
-    this.initializeStandings(); // Reset standings
+  updateMatchScore(match: Match, player1Score: number, player2Score: number): void {
+    if (match.completed) return;
 
-    for (const match of this.matches) {
-      if (
-        match.saved &&
-        match.score1 !== undefined &&
-        match.score2 !== undefined
-      ) {
-        const player1Standing = this.standings.find(
-          (s) => s.player === match.player1
-        )!;
-        const player2Standing = this.standings.find(
-          (s) => s.player === match.player2
-        )!;
+    const updatedMatch: Match = {
+      ...match,
+      player1Score,
+      player2Score,
+      completed: true
+    };
 
+    // Update match in store
+    this.store.dispatch(MatchActions.updateMatchScore({ match: updatedMatch }));
+
+    // Save all matches to localStorage
+    this.matches$.pipe(take(1)).subscribe(matches => {
+      const updatedMatches = matches.map(m => 
+        m.id === match.id ? updatedMatch : m
+      );
+      localStorage.setItem('leagueMatches', JSON.stringify(updatedMatches));
+    });
+  }
+
+  private calculateStandings(matches: Match[], players: Player[]): Standing[] {
+    const standings = new Map<string, Standing>();
+
+    // Initialize standings for all players
+    players.forEach(player => {
+      standings.set(player.id.toString(), {
+        playerId: player.id.toString(),
+        playerName: player.name,
+        teamName: player.assignedTeam?.name || '',
+        played: 0,
+        won: 0,
+        drawn: 0,
+        lost: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        points: 0
+      });
+    });
+
+    // Calculate standings from completed matches
+    matches.filter(m => m.completed).forEach(match => {
+      const player1Standing = standings.get(match.player1.id.toString());
+      const player2Standing = standings.get(match.player2.id.toString());
+      
+      if (player1Standing && player2Standing) {
+        // Update matches played
         player1Standing.played++;
         player2Standing.played++;
 
-        player1Standing.goalsFor += match.score1;
-        player1Standing.goalsAgainst += match.score2;
-        player2Standing.goalsFor += match.score2;
-        player2Standing.goalsAgainst += match.score1;
+        // Update goals
+        player1Standing.goalsFor += match.player1Score || 0;
+        player1Standing.goalsAgainst += match.player2Score || 0;
+        player2Standing.goalsFor += match.player2Score || 0;
+        player2Standing.goalsAgainst += match.player1Score || 0;
 
-        if (match.score1 > match.score2) {
+        // Update results
+        if (match.player1Score! > match.player2Score!) {
           player1Standing.won++;
           player2Standing.lost++;
           player1Standing.points += 3;
-        } else if (match.score1 < match.score2) {
-          player1Standing.lost++;
+        } else if (match.player1Score! < match.player2Score!) {
           player2Standing.won++;
+          player1Standing.lost++;
           player2Standing.points += 3;
         } else {
           player1Standing.drawn++;
@@ -134,97 +201,107 @@ export class LeagueBracketComponent implements OnInit {
           player2Standing.points += 1;
         }
       }
-    }
-
-    // Calculate goal difference
-    this.standings.forEach((standing) => {
-      standing.goalDifference = standing.goalsFor - standing.goalsAgainst;
     });
 
-    // Sort standings
-    this.standings.sort((a, b) => {
-      if (b.points !== a.points) {
-        return b.points - a.points; // Sort by points
-      } else if (b.goalDifference !== a.goalDifference) {
-        return b.goalDifference - a.goalDifference; // Then by goal difference
-      } else if (b.goalsFor !== a.goalsFor) {
-        return b.goalsFor - a.goalsFor; // Then by goals scored
-      } else {
-        return a.player.localeCompare(b.player); // Finally alphabetically
+    // Convert to array and sort by points, then goal difference
+    return Array.from(standings.values()).sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      const aGD = a.goalsFor - a.goalsAgainst;
+      const bGD = b.goalsFor - b.goalsAgainst;
+      if (bGD !== aGD) return bGD - aGD;
+      return b.goalsFor - a.goalsFor;
+    });
+  }
+
+  async downloadStandingsToExcel(standings: Standing[]): Promise<void> {
+    try {
+      // Prepare data for Excel
+      const data = standings.map(standing => ({
+        'Player': standing.playerName,
+        'Team': standing.teamName,
+        'Played': standing.played,
+        'Won': standing.won,
+        'Drawn': standing.drawn,
+        'Lost': standing.lost,
+        'Goals For': standing.goalsFor,
+        'Goals Against': standing.goalsAgainst,
+        'Points': standing.points
+      }));
+
+      // Generate filename with current date and time
+      const now = new Date();
+      const filename = `League_Standings_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}.xlsx`;
+
+      await this.excelService.exportToExcel(data, filename);
+    } catch (error) {
+      console.error('Error generating Excel file:', error);
+    }
+  }
+
+  async finishLeague(standings: Standing[]): Promise<void> {
+    try {
+      // Prepare data for Excel
+      const data = standings.map(standing => ({
+        'Player': standing.playerName,
+        'Team': standing.teamName,
+        'Played': standing.played,
+        'Won': standing.won,
+        'Drawn': standing.drawn,
+        'Lost': standing.lost,
+        'Goals For': standing.goalsFor,
+        'Goals Against': standing.goalsAgainst,
+        'Points': standing.points
+      }));
+
+      // Generate filename with current date and time
+      const now = new Date();
+      const filename = `League_Standings_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}.xlsx`;
+
+      // Export to Excel
+      await this.excelService.exportToExcel(data, filename);
+
+      // Save current teams and leagues data
+      const teamsData = localStorage.getItem('teams');
+      const leaguesData = localStorage.getItem('leagues');
+
+      // Clear all data from localStorage
+      localStorage.clear();
+
+      // Restore teams and leagues data
+      if (teamsData) {
+        localStorage.setItem('teams', teamsData);
       }
-    });
+      if (leaguesData) {
+        localStorage.setItem('leagues', leaguesData);
+      }
 
-    this.saveData();
-  }
+      // Clear players from store
+      this.store.dispatch(PlayerActions.clearPlayers());
 
-  endTournament() {
-    // Generate and download Excel report
-    this.downloadExcelReport();
+      // Clear matches and reset store
+      this.store.dispatch(PlayerActions.loadPlayersSuccess({ players: [] }));
+      localStorage.removeItem('players');
+      localStorage.removeItem('leagueMatches');
+      localStorage.removeItem('isFullSeason');
 
-    this.clearAllLocalStorage();
-
-    this.clearSavedData();
-
-    // Clear player data and navigate to setup
-    this.playerService.clearPlayers();
-    this.router.navigate(['/setup']);
-  }
-
-  private clearAllLocalStorage() {
-    localStorage.clear();
-  }
-
-  private downloadExcelReport() {
-    // Create worksheet
-    const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(this.standings);
-
-    // Create workbook and add the worksheet
-    const wb: XLSX.WorkBook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Tournament Results');
-
-    // Generate Excel file
-    const excelBuffer: any = XLSX.write(wb, {
-      bookType: 'xlsx',
-      type: 'array',
-    });
-    const data: Blob = new Blob([excelBuffer], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    });
-
-    // Save the file
-
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth() + 1;
-    const day = today.getDate();
-    const filename = `tournament_results_${day}_${month}_${year}.xlsx`;
-
-    saveAs(data, filename);
-  }
-
-  private saveData() {
-    localStorage.setItem('leagueBracketMatches', JSON.stringify(this.matches));
-    localStorage.setItem(
-      'leagueBracketStandings',
-      JSON.stringify(this.standings)
-    );
-  }
-
-  private loadSavedData() {
-    const savedMatches = localStorage.getItem('leagueBracketMatches');
-    const savedStandings = localStorage.getItem('leagueBracketStandings');
-
-    if (savedMatches && savedStandings) {
-      this.matches = JSON.parse(savedMatches);
-      this.standings = JSON.parse(savedStandings);
-    } else {
-      this.matches = [];
-      this.standings = [];
+      // Navigate back to team setup
+      this.router.navigate(['/team-setup']);
+    } catch (error) {
+      console.error('Error finishing league:', error);
     }
   }
 
-  private clearSavedData() {
-    localStorage.removeItem('leagueBracketMatches');
-    localStorage.removeItem('leagueBracketStandings');
+  togglePlayerFilter(playerId: number) {
+    if (this.selectedPlayer === playerId) {
+      this.selectedPlayer = null;
+      this.filteredMatches$ = this.matches$;
+    } else {
+      this.selectedPlayer = playerId;
+      this.filteredMatches$ = this.matches$.pipe(
+        map(matches => matches.filter(match => 
+          match.player1.id === playerId
+        ))
+      );
+    }
   }
 }

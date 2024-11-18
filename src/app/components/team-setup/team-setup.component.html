@@ -1,0 +1,109 @@
+<div class="bg-white shadow sm:rounded-lg">
+  <div class="px-4 py-5 sm:p-6">
+    <h3 class="text-lg font-medium leading-6 text-gray-900">Team Setup</h3>
+    <div class="mt-2 max-w-xl text-sm text-gray-500">
+      <p>Add your favorite teams from different leagues.</p>
+    </div>
+    
+    <!-- Add Team Form -->
+    <form [formGroup]="teamForm" (ngSubmit)="onSubmit()" class="mt-5">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 items-end">
+        <!-- Team Name Field -->
+        <div>
+          <label for="name" class="block text-sm font-medium text-gray-700">Team Name</label>
+          <div class="mt-1">
+            <input type="text" id="name" formControlName="name"
+              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              placeholder="Manchester United">
+          </div>
+        </div>
+
+        <!-- League Field -->
+        <div>
+          <label for="league_id" class="block text-sm font-medium text-gray-700">League</label>
+          <div class="mt-1">
+            <select id="league_id" formControlName="league_id"
+              class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+              <option value="">Select a league</option>
+              <option *ngFor="let league of leagues$ | async" [value]="league.id">
+                {{ league.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div>
+          <button type="submit" [disabled]="teamForm.invalid || (loading$ | async)"
+            class="w-full inline-flex justify-center items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50">
+            <span *ngIf="!(loading$ | async)">Add Team</span>
+            <span *ngIf="loading$ | async">Adding...</span>
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Error Message -->
+    <div *ngIf="error$ | async as error" class="mt-4 rounded-md bg-red-50 p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm font-medium text-red-800">{{ error }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Teams List -->
+    <div class="mt-8">
+      <div class="flex items-center justify-between">
+        <h4 class="text-base font-medium text-gray-900">Teams by League</h4>
+        <button *ngIf="(teams$ | async)?.length" (click)="clearAllTeams()"
+          class="inline-flex items-center rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+          Reset All Teams to Default
+        </button>
+      </div>
+      <div class="mt-4 space-y-8">
+        <ng-container *ngFor="let leagueGroup of teamsByLeague$ | async">
+          <div class="rounded-lg">
+            <div class="flex items-center justify-between mb-4">
+              <h5 class="text-lg font-medium text-gray-900">{{ leagueGroup.league }}</h5>
+              <span class="text-sm text-gray-500">{{ leagueGroup.teams.length }} teams</span>
+            </div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div *ngFor="let team of leagueGroup.teams" 
+                class="relative bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
+                <div class="p-4">
+                  <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                      <h3 class="text-sm font-medium text-gray-900 truncate">{{ team.name }}</h3>
+                    </div>
+                    <button (click)="deleteTeam(team.id)"
+                      class="ml-2 inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-sm font-medium text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+
+    <!-- Next Button -->
+    <div class="mt-8 flex justify-end">
+      <button (click)="goToPlayerSetup()" [disabled]="!(teams$ | async)?.length"
+        class="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50">
+        Next: Player Setup
+      </button>
+    </div>
+  </div>
+</div>

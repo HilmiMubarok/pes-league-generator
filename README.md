@@ -1,35 +1,27 @@
-# Project: Random Team Selector App for PES 2025 Game Nights
+# TeamDraw
 
-## Objective
+This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 16.2.16.
 
-Create a streamlined web app using Angular v16 and TailwindCSS that facilitates fair team assignment for PES 2025 game sessions. This app aims to prevent conflicts when multiple players want the same team by randomly assigning teams and displaying a league-style bracket to organize matchups.
+## Development server
 
-## Use Case
+Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
 
-During PES 2025 game nights with friends, it's common for players to prefer the same popular teams, often leading to unbalanced games. This app resolves the issue by assigning teams randomly and displaying a structured league bracket for organized gameplay.
+## Code scaffolding
 
-## Requirements
+Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
 
-1. **Player Setup Stage:**
+## Build
 
-   - A form to input the total number of players.
-   - Upon clicking "Next," navigate to a screen where each player can enter their name.
+Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
 
-2. **Random Team Assignment:**
+## Running unit tests
 
-   - After all player names are entered and submitted, each player is assigned a team at random, ensuring no team is selected more than once.
+Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
 
-3. **League Bracket Generation:**
-   - Display a league-style bracket after teams are assigned, which organizes players into matchups and tracks progression through each round.
+## Running end-to-end tests
 
-## Technology Stack
+Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
 
-- **Frontend Framework**: Angular v16
-- **Styling**: TailwindCSS for a responsive, modern UI.
+## Further help
 
-## Key Features to Include
-
-- Clean, intuitive UI that’s responsive on different devices.
-- Validation for player names and number of players (e.g., minimum and maximum player limits).
-- Smooth transitions between setup, team assignment, and bracket stages.
-- Clear, visually organized display of randomized teams and the league bracket, making it easy to follow matchups.
+To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.

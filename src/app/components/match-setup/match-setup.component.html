@@ -1,0 +1,84 @@
+<div class="bg-white shadow sm:rounded-lg">
+  <div class="px-4 py-5 sm:p-6">
+    <h3 class="text-lg font-medium leading-6 text-gray-900">Team Assignments</h3>
+    <div class="mt-2 max-w-xl text-sm text-gray-500">
+      <p>Assign teams to players before starting the league.</p>
+    </div>
+
+    <!-- Team Assignments -->
+    <div class="mt-4">
+      <div class="sm:flex sm:items-center">
+        <div class="sm:flex-auto">
+          <h2 class="text-base font-semibold leading-6 text-gray-900">Players and Teams</h2>
+          <p class="mt-2 text-sm text-gray-700">Review team assignments or randomize them before starting.</p>
+        </div>
+        <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+          <button type="button" (click)="randomizeTeams()" [disabled]="isRandomizing"
+            class="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
+            <span *ngIf="!isRandomizing">Randomize Teams</span>
+            <span *ngIf="isRandomizing" class="flex items-center">
+              <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Randomizing...
+            </span>
+          </button>
+        </div>
+      </div>
+      
+      <div class="mt-8 flow-root">
+        <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+          <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+            <table class="min-w-full divide-y divide-gray-300">
+              <thead>
+                <tr>
+                  <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Player</th>
+                  <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Assigned Team</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                <tr *ngFor="let player of assignedPlayers">
+                  <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
+                    {{ player.name }}
+                  </td>
+                  <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                    {{ player.assignedTeam?.name || 'Not assigned' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Season Type Toggle -->
+      <div class="mt-6 flex items-center space-x-2">
+        <input id="fullSeason"
+          type="checkbox"
+          [checked]="isFullSeason"
+          (change)="toggleSeasonType()"
+          class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600">
+        <label for="fullSeason" class="text-sm font-medium text-gray-900">
+          Full Season (Home and Away Matches)
+        </label>
+        <button type="button" 
+          class="ml-1 inline-flex items-center rounded-full bg-gray-100 p-1 text-gray-500 hover:text-gray-600"
+          title="In full season, each team will play against every other team twice - once at home and once away">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Start League Button -->
+      <div class="mt-6 flex justify-end">
+        <button type="button" (click)="startLeague()" 
+          [disabled]="assignedPlayers.length < 2 || isRandomizing"
+          class="rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
+          Start League
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
